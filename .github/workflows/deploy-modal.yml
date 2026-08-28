@@ -1,11 +1,10 @@
-name: Deploy Mage-Flow to Modal
+name: Deploy Egyptian Voice + Chat to Modal
 
 on:
   push:
     branches: [main]
     paths:
       - "modal_app.py"
-      - "storyboard_test.py"
       - ".github/workflows/deploy-modal.yml"
   workflow_dispatch:
 
@@ -49,29 +48,29 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: modal secret create --force huggingface HF_TOKEN="$HF_TOKEN"
 
-      - name: Cache Mage-Flow model weights in Modal Volume
+      - name: Cache VoxCPM2 and Egyptian Qwen weights
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: modal run modal_app.py::download_models
 
-      - name: Deploy private Mage-Flow API
+      - name: Deploy private voice and chat API
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: modal deploy modal_app.py
 
-      - name: Generate 10-frame Ramses storyboard and benchmark it
+      - name: Smoke test Egyptian Qwen and VoxCPM2
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run storyboard_test.py::storyboard
+        run: modal run modal_app.py::smoke_test --output-dir smoke-output
 
-      - name: Upload storyboard images and benchmark
+      - name: Upload smoke test outputs
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ramses-mage-storyboard
-          path: storyboard-output/
+          name: egyptian-voice-chat-smoke-test
+          path: smoke-output/
           if-no-files-found: ignore
           retention-days: 3
