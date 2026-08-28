@@ -60,17 +60,17 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: modal deploy modal_app.py
 
-      - name: Smoke test generation and editing on L4
+      - name: Benchmark three 1024px generations on L4
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run modal_app.py::smoke_test
+        run: modal run modal_app.py::benchmark
 
-      - name: Upload smoke-test images
+      - name: Upload benchmark results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mage-flow-smoke-images
-          path: smoke-output/
+          name: mage-flow-1024-benchmark
+          path: benchmark-output/
           if-no-files-found: ignore
           retention-days: 3
