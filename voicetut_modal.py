@@ -101,7 +101,10 @@ class VoiceTut:
             language="arz",
         )
         self.sample_rate = int(self.tts.sampling_rate)
-        self.speaker_names = [getattr(s, "name", str(s)) for s in self.tts.list_speakers()]
+        self.speaker_names = [
+            getattr(s, "speaker_name", getattr(s, "name", str(s)))
+            for s in self.tts.list_speakers()
+        ]
         print(f"VOICETUT_LOADED sample_rate={self.sample_rate} speakers={self.speaker_names}")
 
     def _to_wav_bytes(self, waveform) -> bytes:
