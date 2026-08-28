@@ -10,6 +10,12 @@ on:
       - "vox_oneshot_modal.py"
       - ".github/workflows/compare-english-oneshot.yml"
   workflow_dispatch:
+    inputs:
+      retry_qwen_long_oneshot:
+        description: "Retry the Qwen long one-shot that previously exceeded 900 seconds"
+        required: false
+        default: false
+        type: boolean
 
 permissions:
   contents: read
@@ -51,23 +57,39 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: modal secret create --force huggingface HF_TOKEN="$HF_TOKEN"
 
-      - name: Ensure Qwen3-TTS model is cached
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run qwen3_tts_modal.py::download_model
-
-      - name: Run Qwen3-TTS long one-shot cold and warm
-        env:
-          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
-          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run qwen3_oneshot_expression_benchmark.py::benchmark --output-dir qwen3-oneshot-output
-
+      # Run Vox first so a Qwen long-context failure can never prevent the comparison artifact.
       - name: Run VoxCPM2 long one-shot cold and warm
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: modal run vox_oneshot_expression_benchmark.py::benchmark --output-dir vox-oneshot-output
+
+      # The previous 3,530-character Qwen request exceeded its 900-second Modal timeout.
+      # Do not automatically burn another 15 minutes of L4 time on every push.
+      - name: Ensure Qwen3-TTS model is cached
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.retry_qwen_long_oneshot == true }}
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run qwen3_tts_modal.py::download_model
+
+      - name: Retry Qwen3-TTS long one-shot cold and warm
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.retry_qwen_long_oneshot == true }}
+        continue-on-error: true
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run qwen3_oneshot_expression_benchmark.py::benchmark --output-dir qwen3-oneshot-output
+
+      - name: Record Qwen long one-shot timeout result
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.retry_qwen_long_oneshot == true) }}
+        run: |
+          mkdir -p qwen3-oneshot-output
+          cat > qwen3-oneshot-output/TIMEOUT_RESULT.txt <<'EOF'
+          Qwen3-TTS 0.6B CustomVoice long one-shot result:
+          The 3,530-character English request exceeded the Modal function timeout of 900 seconds on an L4 using SDPA/manual PyTorch.
+          No audio was returned before timeout. This automatic run intentionally does not repeat that failed 15-minute GPU request.
+          EOF
 
       - name: Upload comparison audio and metrics
         if: always()
