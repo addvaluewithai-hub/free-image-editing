@@ -261,3 +261,34 @@ def api():
         return Response(content=data, media_type="image/png")
 
     return web
+
+
+@app.local_entrypoint()
+def smoke_test(output_dir: str = "smoke-output") -> None:
+    """Exercise both GPU models and save outputs on the caller for CI inspection."""
+    target = Path(output_dir)
+    target.mkdir(parents=True, exist_ok=True)
+
+    generated = Generator().generate.remote(
+        "A clean premium poster on an off-white background. In the center, render "
+        "the exact large headline text 'MAGE WORKS' in bold black sans-serif type. "
+        "Minimal composition, crisp typography, studio-quality graphic design.",
+        512,
+        512,
+        12345,
+    )
+    generation_path = target / "generation.png"
+    generation_path.write_bytes(generated)
+    print(f"GENERATION_OK bytes={len(generated)} path={generation_path}")
+
+    edited = Editor().edit.remote(
+        generated,
+        "Keep the entire poster unchanged, but replace only the headline text "
+        "'MAGE WORKS' with the exact text 'EDIT WORKS'. Preserve the same font, "
+        "size, position, background, and layout.",
+        512,
+        54321,
+    )
+    edit_path = target / "edit.png"
+    edit_path.write_bytes(edited)
+    print(f"EDIT_OK bytes={len(edited)} path={edit_path}")
