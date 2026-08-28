@@ -28,6 +28,14 @@ model_image = (
     .env(
         {
             "CUDA_HOME": "/usr/local/cuda",
+            # Modal's CUDA builder image can expose clang++ first. FlashAttention
+            # must be compiled with the same compiler family as PyTorch on Linux.
+            "CC": "/usr/bin/gcc",
+            "CXX": "/usr/bin/g++",
+            "CUDAHOSTCXX": "/usr/bin/g++",
+            # L4 is Ada (SM 8.9). Restricting the build avoids compiling kernels
+            # for GPUs we will never use and makes the image much faster to build.
+            "TORCH_CUDA_ARCH_LIST": "8.9",
             "MAX_JOBS": "4",
             "HF_XET_HIGH_PERFORMANCE": "1",
             "PYTHONUNBUFFERED": "1",
@@ -49,7 +57,11 @@ model_image = (
         "einops==0.8.2 pydantic==2.12.5 pillow==12.3.0 loguru==0.7.3 "
         "fastapi[standard] python-multipart"
     )
-    .run_commands("pip install --no-build-isolation flash-attn==2.8.3")
+    .run_commands(
+        "CC=/usr/bin/gcc CXX=/usr/bin/g++ CUDAHOSTCXX=/usr/bin/g++ "
+        "TORCH_CUDA_ARCH_LIST=8.9 "
+        "pip install --no-build-isolation flash-attn==2.8.3"
+    )
     .run_commands("pip install --no-deps -e /opt/Mage/mage_flow")
 )
 
