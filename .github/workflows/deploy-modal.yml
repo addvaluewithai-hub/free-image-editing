@@ -1,11 +1,11 @@
-name: Benchmark VoxCPM2 Egyptian Narration
+name: Benchmark VoiceTut Egyptian Narration
 
 on:
   push:
     branches: [main]
     paths:
-      - "modal_app.py"
-      - "vox_benchmark.py"
+      - "voicetut_modal.py"
+      - "voicetut_benchmark.py"
       - ".github/workflows/deploy-modal.yml"
   workflow_dispatch:
 
@@ -49,29 +49,29 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: modal secret create --force huggingface HF_TOKEN="$HF_TOKEN"
 
-      - name: Ensure VoxCPM2 and Egyptian Qwen weights are cached
+      - name: Cache VoiceTut model weights
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run modal_app.py::download_models
+        run: modal run voicetut_modal.py::download_model
 
-      - name: Deploy private voice and chat API
+      - name: Deploy isolated VoiceTut service
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal deploy modal_app.py
+        run: modal deploy voicetut_modal.py
 
-      - name: Benchmark VoxCPM2 on 10 Ramses scenes
+      - name: Benchmark VoiceTut on 10 Ramses scenes with one fixed speaker
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run vox_benchmark.py::benchmark --output-dir vox-benchmark-output
+        run: modal run voicetut_benchmark.py::benchmark --output-dir voicetut-output
 
-      - name: Upload VoxCPM2 clips and benchmark
+      - name: Upload VoiceTut clips and benchmark
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: voxcpm2-ramses-10-scene-benchmark
-          path: vox-benchmark-output/
+          name: voicetut-ramses-10-scene-benchmark
+          path: voicetut-output/
           if-no-files-found: ignore
           retention-days: 3
