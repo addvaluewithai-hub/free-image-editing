@@ -1,11 +1,11 @@
-name: Benchmark VoiceTut Egyptian Narration
+name: Benchmark Qwen3-TTS 0.6B English Narration
 
 on:
   push:
     branches: [main]
     paths:
-      - "voicetut_modal.py"
-      - "voicetut_benchmark.py"
+      - "qwen3_tts_modal.py"
+      - "qwen3_tts_benchmark.py"
       - ".github/workflows/deploy-modal.yml"
   workflow_dispatch:
 
@@ -49,29 +49,29 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: modal secret create --force huggingface HF_TOKEN="$HF_TOKEN"
 
-      - name: Cache VoiceTut model weights
+      - name: Cache Qwen3-TTS model weights
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run voicetut_modal.py::download_model
+        run: modal run qwen3_tts_modal.py::download_model
 
-      - name: Deploy isolated VoiceTut service
+      - name: Deploy isolated Qwen3-TTS service
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal deploy voicetut_modal.py
+        run: modal deploy qwen3_tts_modal.py
 
-      - name: Benchmark VoiceTut on 10 Ramses scenes with one fixed speaker
+      - name: Benchmark Qwen3-TTS on 10 English Ramses scenes
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run voicetut_benchmark.py::benchmark --output-dir voicetut-output
+        run: modal run qwen3_tts_benchmark.py::benchmark --output-dir qwen3-tts-output
 
-      - name: Upload VoiceTut clips and benchmark
+      - name: Upload Qwen3-TTS clips and benchmark
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: voicetut-ramses-10-scene-benchmark
-          path: voicetut-output/
+          name: qwen3-tts-06b-english-benchmark
+          path: qwen3-tts-output/
           if-no-files-found: ignore
           retention-days: 3
