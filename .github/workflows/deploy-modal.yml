@@ -1,10 +1,11 @@
-name: Deploy Egyptian Voice + Chat to Modal
+name: Benchmark VoxCPM2 Egyptian Narration
 
 on:
   push:
     branches: [main]
     paths:
       - "modal_app.py"
+      - "vox_benchmark.py"
       - ".github/workflows/deploy-modal.yml"
   workflow_dispatch:
 
@@ -16,7 +17,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  benchmark:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -48,7 +49,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: modal secret create --force huggingface HF_TOKEN="$HF_TOKEN"
 
-      - name: Cache VoxCPM2 and Egyptian Qwen weights
+      - name: Ensure VoxCPM2 and Egyptian Qwen weights are cached
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
@@ -60,17 +61,17 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: modal deploy modal_app.py
 
-      - name: Smoke test Egyptian Qwen and VoxCPM2
+      - name: Benchmark VoxCPM2 on 10 Ramses scenes
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run modal_app.py::smoke_test --output-dir smoke-output
+        run: modal run vox_benchmark.py::benchmark --output-dir vox-benchmark-output
 
-      - name: Upload smoke test outputs
+      - name: Upload VoxCPM2 clips and benchmark
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: egyptian-voice-chat-smoke-test
-          path: smoke-output/
+          name: voxcpm2-ramses-10-scene-benchmark
+          path: vox-benchmark-output/
           if-no-files-found: ignore
           retention-days: 3
