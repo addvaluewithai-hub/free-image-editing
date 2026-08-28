@@ -3,10 +3,7 @@ from __future__ import annotations
 import json
 import statistics
 import time
-from io import BytesIO
 from pathlib import Path
-
-from PIL import Image
 
 from modal_app import Editor, Generator, app
 
@@ -111,18 +108,15 @@ def storyboard(output_dir: str = "storyboard-output") -> None:
     anchor_seconds = time.perf_counter() - t0
     anchor_path = target / "01-concept-anchor.png"
     anchor_path.write_bytes(anchor)
-    with Image.open(BytesIO(anchor)) as im:
-        anchor_size = im.size
     print(
         f"STORY_IMAGE index=1 role=anchor seconds={anchor_seconds:.3f} "
-        f"bytes={len(anchor)} size={anchor_size[0]}x{anchor_size[1]} path={anchor_path}"
+        f"bytes={len(anchor)} requested={WIDTH}x{HEIGHT} path={anchor_path}"
     )
 
     # 2-10) Every frame edits the SAME anchor, avoiding cumulative style drift.
     editor = Editor()
     edit_durations: list[float] = []
     output_sizes = [len(anchor)]
-    dimensions = [list(anchor_size)]
     scene_records = []
 
     for index, (slug, scene_instruction) in enumerate(SCENES, start=2):
@@ -134,21 +128,17 @@ def storyboard(output_dir: str = "storyboard-output") -> None:
         output_sizes.append(len(data))
         path = target / f"{index:02d}-{slug}.png"
         path.write_bytes(data)
-        with Image.open(BytesIO(data)) as im:
-            size = im.size
-        dimensions.append(list(size))
         scene_records.append(
             {
                 "index": index,
                 "slug": slug,
                 "seconds": elapsed,
                 "bytes": len(data),
-                "size": list(size),
             }
         )
         print(
             f"STORY_IMAGE index={index} role=edit slug={slug} seconds={elapsed:.3f} "
-            f"bytes={len(data)} size={size[0]}x{size[1]} path={path}"
+            f"bytes={len(data)} path={path}"
         )
 
     wall_seconds = time.perf_counter() - overall_start
@@ -177,7 +167,6 @@ def storyboard(output_dir: str = "storyboard-output") -> None:
         "estimated_usd_per_image_upper_bound": estimated_gpu_usd / 10.0,
         "estimated_images_per_30_upper_bound_basis": estimated_images_per_30,
         "output_bytes": output_sizes,
-        "dimensions": dimensions,
         "scenes": scene_records,
         "note": "Cost estimate uses end-to-end wall time times published L4 GPU rate; actual Modal billing may differ because caller/queue overhead is not necessarily billable GPU time.",
     }
