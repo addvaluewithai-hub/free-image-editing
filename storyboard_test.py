@@ -11,85 +11,105 @@ L4_GPU_USD_PER_SECOND = 0.000222
 WIDTH = 1024
 HEIGHT = 576
 
-STYLE_LOCK = """
-Use the supplied image as the strict character-design and art-direction reference.
-Preserve the SAME Ramses character identity and costume whenever Ramses appears:
-round white face, simple black oval eyes, tiny expressive mouth, bold black outlines,
-blue-and-gold striped nemes headdress, white sleeveless tunic, gold belt, long simple limbs.
-Preserve the SAME visual language across every frame: flat 2D educational explainer cartoon,
-clean vector-like shapes, thick black outlines, minimal or no shading, simple geometric anatomy,
-limited warm Egyptian desert palette, pale blue sky, sandy ochre and muted gold, uncluttered
-composition, friendly documentary infographic feeling, crisp 16:9 frame. No photorealism,
-no 3D render, no painterly texture, no cinematic realism. Create a NEW composition for the
-requested scene while keeping the style and recurring character visually consistent.
+STYLE_BIBLE = """
+Flat 2D educational history explainer cartoon. Clean vector-like shapes, thick confident black
+outlines, almost no shading, simple geometric anatomy, friendly expressive faces with white
+circular heads and simple black oval eyes. Limited warm ancient-Egypt palette: pale blue sky,
+sandy ochre, muted gold, dark navy blue, white clothing, small restrained accent colors.
+Simple readable 16:9 composition, uncluttered negative space, infographic clarity, modern
+YouTube documentary explainer feeling. Avoid photorealism, 3D rendering, painterly textures,
+complex gradients, cinematic realism, anime, detailed realistic skin, or ornate visual noise.
+Do not render any written text unless explicitly requested.
 """.strip()
 
-CONCEPT_PROMPT = """
-Create the master visual reference for an educational animated explainer about Ramses II.
-Flat 2D vector-cartoon style with bold clean black outlines, simple geometric characters,
-minimal shading, limited pastel desert palette. Ramses II stands centered in a simple Egyptian
-desert landscape with two small pyramids far in the background. Give him a round white face,
-large simple black oval eyes, a subtle friendly expression, a blue-and-gold striped nemes
-headdress, white sleeveless tunic, gold belt and collar, and long simple limbs. The framing
-should feel like a modern YouTube history explainer animation: clean, readable, playful but
-not childish, lots of negative space, pale blue sky and warm sand. No text. No photorealism.
-This image will be used as the exact character and style reference for all following scenes.
+RAMSES_LOCK = """
+Use the supplied image as the strict Ramses II character-design reference. Whenever Ramses
+appears, preserve his identity: round white face, simple black oval eyes, tiny expressive mouth,
+bold black outlines, blue-and-gold striped nemes headdress, white sleeveless tunic, muted-gold
+collar and belt, long simple limbs. Preserve the same flat 2D educational explainer art direction,
+but you MAY substantially rearrange the composition, pose, camera framing, props and background
+to create the requested NEW scene. Do not simply keep the reference pose in the center.
 """.strip()
 
-SCENES = [
+CONCEPT_PROMPT = STYLE_BIBLE + """
+
+Create the MASTER CHARACTER / STYLE REFERENCE for an educational animated explainer about
+Ramses II. Ramses stands centered, full body, in a simple Egyptian desert landscape with two
+small pyramids far in the background. He has a round white face, large simple black oval eyes,
+a subtle friendly expression, blue-and-gold striped nemes headdress, white sleeveless tunic,
+muted-gold belt and collar, and long simple limbs. Clean readable silhouette, lots of negative
+space. No text. This must look like a reusable animation model-sheet frame, not a realistic painting.
+""".strip()
+
+# Scenes where character identity matters: use Mage Edit with the concept anchor.
+EDIT_SCENES = [
     (
+        2,
         "02-rule-66-years",
-        "Show Ramses proudly standing in front of a simplified Abu Simbel temple facade. "
-        "At the top, render ONLY the exact Arabic text '٦٦ سنة' in large bold black lettering. "
-        "Add a simple visual motif suggesting a very long reign, but keep the frame clean and easy to read.",
+        "Create a NEW wide composition: Ramses stands proudly off-center in front of a simplified Abu Simbel temple facade. "
+        "Show a clean visual motif of many small sun symbols or calendar marks suggesting an exceptionally long reign. "
+        "Leave generous empty space at the top for a title that will be added later in post-production. No generated text.",
     ),
     (
+        3,
         "03-peace-treaty",
-        "Show Ramses on the left shaking hands with a Hittite envoy on the right. Between them, "
-        "they hold a small clay treaty tablet with simple ancient symbols. Use a clean desert background "
-        "and a simplified temple silhouette. The mood is diplomatic and historic. No modern text.",
+        "Create a NEW wide composition: Ramses on the left shakes hands with a Hittite envoy on the right. Between them they "
+        "hold a small clay treaty tablet with simple ancient marks. Simplified temple silhouette and desert background. "
+        "Clear diplomatic body language; Ramses must remain recognizable from the reference. No text.",
     ),
     (
+        4,
         "04-long-life",
-        "Create an infographic-style scene about Ramses living to around ninety years old. Ramses stands "
-        "on the left looking elderly but recognizable, while many small sun icons form neat rows across the frame "
-        "to suggest passing years. Keep it simple, graphic and educational. No extra text.",
+        "Create a NEW infographic composition about Ramses reaching roughly ninety years old. Put an elderly but clearly "
+        "recognizable Ramses on the left, with subtle age lines and a walking staff, while neat rows of small sun icons fill "
+        "the right side to suggest many passing years. Keep the frame spacious and educational. No text.",
     ),
     (
-        "05-ct-scan-2016",
-        "Move the story to a modern medical research room while preserving the exact same flat explainer style. "
-        "Show a wrapped ancient Egyptian mummy entering a simplified CT scanner. Two modern Egyptian researchers "
-        "in lab coats observe a monitor showing a simple skull scan. Ramses himself does not need to appear.",
-    ),
-    (
-        "06-ct-slices-explainer",
-        "Create a clear educational infographic explaining a CT scan as many slices through the body. Show a simplified "
-        "mummy silhouette on the left, then several evenly spaced cross-section slice panels moving toward a skull image "
-        "on the right. Use arrows and clean diagram logic, but no labels or text.",
-    ),
-    (
-        "07-dental-damage",
-        "Show a simplified close-up medical diagram of Ramses' jaw and teeth in the same cartoon style. Several teeth are "
-        "worn down, a few are missing, and one back molar area on the left side is highlighted with a red-orange swollen "
-        "abscess near the root. Educational, non-gory, very clear anatomy diagram.",
-    ),
-    (
+        8,
         "08-king-toothache",
-        "Show Ramses seated on a simple golden throne inside a stylized palace, holding one cheek in obvious tooth pain. "
-        "Around him are symbols of wealth and power: a small gold chest, a priest and an ancient physician looking concerned. "
-        "Make the irony visually clear: powerful king, ordinary unbearable toothache.",
+        "Create a NEW palace scene: Ramses sits on a simple golden throne, leaning slightly and holding one cheek in obvious "
+        "tooth pain. Nearby are a concerned ancient physician and priest plus simple symbols of royal wealth such as a small "
+        "gold chest. The visual joke is clear: immense power, ordinary toothache. No text.",
     ),
     (
+        9,
         "09-king-and-farmer",
-        "Split the composition visually into two simple halves while keeping one continuous illustration. On the left, Ramses "
-        "at a royal table; on the right, a poor Nile Delta farmer at a humble table. Both are eating similar coarse ancient bread, "
-        "and both touch a sore cheek. Emphasize that wealth did not protect their teeth. No text.",
+        "Create a NEW split visual composition. Left half: recognizable Ramses at a royal table eating coarse ancient bread and "
+        "touching a sore cheek. Right half: a poor Nile Delta farmer at a humble table eating similar bread and touching the same "
+        "side of his face. Make the visual comparison immediate and clean. No text.",
+    ),
+]
+
+# Scenes needing a radically different composition: generate from scratch using the same style bible.
+GENERATE_SCENES = [
+    (
+        5,
+        "05-ct-scan-2016",
+        "Modern medical research room in the exact visual style described above. A wrapped ancient Egyptian mummy lies on a "
+        "table entering a simplified white CT scanner. Two modern Egyptian researchers in lab coats stand to one side observing "
+        "a monitor with a simple grayscale skull scan. Absolutely no pharaoh character standing in the room. No text.",
     ),
     (
+        6,
+        "06-ct-slices-explainer",
+        "Educational infographic in the exact visual style described above explaining CT imaging as slices. A simplified wrapped "
+        "mummy silhouette at far left, then a sequence of evenly spaced translucent cross-section slice panels progressing toward "
+        "a simplified skull image at far right, connected by clean arrows. No standing characters, no pharaoh, no labels, no text.",
+    ),
+    (
+        7,
+        "07-dental-damage",
+        "Medical explainer diagram in the exact visual style described above. Large clean side-view cutaway of an ancient jaw and "
+        "teeth filling most of the frame. Several teeth visibly worn down, two missing teeth, and one rear molar on the left has a "
+        "clear red-orange abscess pocket around its root. Non-gory, anatomically readable, simple vector infographic. No characters, no text.",
+    ),
+    (
+        10,
         "10-ordinary-day",
-        "Create a lively but uncluttered ancient Egyptian everyday-life scene: a clerk writing on papyrus at a desk, workers "
-        "carrying baskets, a baker preparing bread, two ordinary people arguing mildly, and Ramses only as a tiny distant royal "
-        "figure or wall image. The feeling should be 'an ordinary Tuesday in ancient Egypt', not tombs and treasure. No text.",
+        "Ancient Egyptian everyday-life scene in the exact visual style described above, with NO pharaoh as the main subject. "
+        "A clerk writes on papyrus at a small desk, workers carry baskets, a baker shapes bread, and two ordinary people mildly "
+        "argue in the background. Mud-brick buildings and a small palm tree establish the setting. The feeling is an ordinary workday, "
+        "not tombs, treasure or royalty. Clean wide composition, no text.",
     ),
 ]
 
@@ -98,77 +118,74 @@ SCENES = [
 def storyboard(output_dir: str = "storyboard-output") -> None:
     target = Path(output_dir)
     target.mkdir(parents=True, exist_ok=True)
-
     overall_start = time.perf_counter()
 
-    # 1) Master concept visual / reference anchor.
+    # A) Generate anchor, then all scratch-generation scenes while Generator stays hot.
     gen = Generator()
     t0 = time.perf_counter()
-    anchor = gen.generate.remote(CONCEPT_PROMPT, WIDTH, HEIGHT, 22001)
+    anchor = gen.generate.remote(CONCEPT_PROMPT, WIDTH, HEIGHT, 33001)
     anchor_seconds = time.perf_counter() - t0
     anchor_path = target / "01-concept-anchor.png"
     anchor_path.write_bytes(anchor)
-    print(
-        f"STORY_IMAGE index=1 role=anchor seconds={anchor_seconds:.3f} "
-        f"bytes={len(anchor)} requested={WIDTH}x{HEIGHT} path={anchor_path}"
-    )
+    print(f"HYBRID_IMAGE index=1 mode=anchor seconds={anchor_seconds:.3f} bytes={len(anchor)} path={anchor_path}")
 
-    # 2-10) Every frame edits the SAME anchor, avoiding cumulative style drift.
-    editor = Editor()
+    generated_durations: list[float] = []
     edit_durations: list[float] = []
-    output_sizes = [len(anchor)]
-    scene_records = []
+    records = [{"index": 1, "slug": "concept-anchor", "mode": "anchor", "seconds": anchor_seconds, "bytes": len(anchor)}]
 
-    for index, (slug, scene_instruction) in enumerate(SCENES, start=2):
-        prompt = STYLE_LOCK + "\n\nNEW SCENE:\n" + scene_instruction
+    for index, slug, scene in GENERATE_SCENES:
+        prompt = STYLE_BIBLE + "\n\nSCENE:\n" + scene
         started = time.perf_counter()
-        data = editor.edit.remote(anchor, prompt, 1024, 22000 + index)
+        data = gen.generate.remote(prompt, WIDTH, HEIGHT, 33000 + index)
         elapsed = time.perf_counter() - started
-        edit_durations.append(elapsed)
-        output_sizes.append(len(data))
+        generated_durations.append(elapsed)
         path = target / f"{index:02d}-{slug}.png"
         path.write_bytes(data)
-        scene_records.append(
-            {
-                "index": index,
-                "slug": slug,
-                "seconds": elapsed,
-                "bytes": len(data),
-            }
-        )
-        print(
-            f"STORY_IMAGE index={index} role=edit slug={slug} seconds={elapsed:.3f} "
-            f"bytes={len(data)} path={path}"
-        )
+        records.append({"index": index, "slug": slug, "mode": "generate", "seconds": elapsed, "bytes": len(data)})
+        print(f"HYBRID_IMAGE index={index} mode=generate slug={slug} seconds={elapsed:.3f} bytes={len(data)} path={path}")
 
+    # B) Ramses scenes use Edit from the SAME original anchor. Editor gets one cold start, then stays hot.
+    editor = Editor()
+    for index, slug, scene in EDIT_SCENES:
+        prompt = RAMSES_LOCK + "\n\n" + STYLE_BIBLE + "\n\nNEW SCENE:\n" + scene
+        started = time.perf_counter()
+        data = editor.edit.remote(anchor, prompt, 1024, 33000 + index)
+        elapsed = time.perf_counter() - started
+        edit_durations.append(elapsed)
+        path = target / f"{index:02d}-{slug}.png"
+        path.write_bytes(data)
+        records.append({"index": index, "slug": slug, "mode": "edit", "seconds": elapsed, "bytes": len(data)})
+        print(f"HYBRID_IMAGE index={index} mode=edit slug={slug} seconds={elapsed:.3f} bytes={len(data)} path={path}")
+
+    records.sort(key=lambda r: r["index"])
     wall_seconds = time.perf_counter() - overall_start
-    editor_cold = edit_durations[0]
-    editor_warm = edit_durations[1:]
-
-    # Wall-time * L4 rate is intentionally a conservative GPU-only upper-bound estimate.
     estimated_gpu_usd = wall_seconds * L4_GPU_USD_PER_SECOND
-    estimated_images_per_30 = 30.0 / (estimated_gpu_usd / 10.0)
 
     result = {
-        "model_generation": "SceneWorks/Mage-Flow-Turbo",
-        "model_editing": "SceneWorks/Mage-Flow-Edit-Turbo",
+        "experiment": "hybrid-style-consistency-v2",
         "gpu": "L4",
-        "l4_gpu_usd_per_second": L4_GPU_USD_PER_SECOND,
         "resolution_requested": f"{WIDTH}x{HEIGHT}",
         "steps": 4,
         "image_count": 10,
         "anchor_seconds": anchor_seconds,
-        "editor_first_call_seconds": editor_cold,
-        "editor_warm_average_seconds": statistics.mean(editor_warm),
-        "editor_warm_min_seconds": min(editor_warm),
-        "editor_warm_max_seconds": max(editor_warm),
+        "generator_warm_average_seconds": statistics.mean(generated_durations),
+        "generator_warm_min_seconds": min(generated_durations),
+        "generator_warm_max_seconds": max(generated_durations),
+        "editor_first_call_seconds": edit_durations[0],
+        "editor_warm_average_seconds": statistics.mean(edit_durations[1:]),
+        "editor_warm_min_seconds": min(edit_durations[1:]),
+        "editor_warm_max_seconds": max(edit_durations[1:]),
         "total_wall_seconds": wall_seconds,
+        "l4_gpu_usd_per_second": L4_GPU_USD_PER_SECOND,
         "estimated_gpu_usd_upper_bound": estimated_gpu_usd,
         "estimated_usd_per_image_upper_bound": estimated_gpu_usd / 10.0,
-        "estimated_images_per_30_upper_bound_basis": estimated_images_per_30,
-        "output_bytes": output_sizes,
-        "scenes": scene_records,
-        "note": "Cost estimate uses end-to-end wall time times published L4 GPU rate; actual Modal billing may differ because caller/queue overhead is not necessarily billable GPU time.",
+        "estimated_images_per_30_upper_bound_basis": 30.0 / (estimated_gpu_usd / 10.0),
+        "routing": {
+            "generate_from_scratch": [x[0] for x in GENERATE_SCENES],
+            "edit_from_anchor": [x[0] for x in EDIT_SCENES],
+        },
+        "scenes": records,
+        "note": "Generation scenes intentionally do not consume the anchor image; consistency comes from a strict shared style bible. Ramses scenes use the anchor with Mage Edit. Cost estimate is end-to-end wall time times published L4 rate and is conservative rather than exact billing telemetry.",
     }
     (target / "storyboard-benchmark.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
-    print("STORYBOARD_JSON=" + json.dumps(result, separators=(",", ":")))
+    print("HYBRID_STORYBOARD_JSON=" + json.dumps(result, separators=(",", ":")))
