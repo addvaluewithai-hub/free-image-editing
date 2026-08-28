@@ -16,9 +16,6 @@ EDIT_MODEL_PATH = MODEL_ROOT / "Mage-Flow-Edit-Turbo"
 app = modal.App(APP_NAME)
 model_volume = modal.Volume.from_name("mage-flow-models", create_if_missing=True)
 
-# Microsoft validates Mage-Flow with Python 3.11, torch 2.13 / CUDA 12.6,
-# transformers 5.5, diffusers 0.38 and flash-attn 2.8.3. We pin the upstream
-# Mage source commit so a future upstream change cannot silently break deploys.
 model_image = (
     modal.Image.from_registry(
         "nvidia/cuda:12.6.3-devel-ubuntu22.04", add_python="3.11"
@@ -28,13 +25,9 @@ model_image = (
     .env(
         {
             "CUDA_HOME": "/usr/local/cuda",
-            # Modal's CUDA builder image can expose clang++ first. FlashAttention
-            # must be compiled with the same compiler family as PyTorch on Linux.
             "CC": "/usr/bin/gcc",
             "CXX": "/usr/bin/g++",
             "CUDAHOSTCXX": "/usr/bin/g++",
-            # L4 is Ada (SM 8.9). Restricting the build avoids compiling kernels
-            # for GPUs we will never use and makes the image much faster to build.
             "TORCH_CUDA_ARCH_LIST": "8.9",
             "MAX_JOBS": "4",
             "HF_XET_HIGH_PERFORMANCE": "1",
@@ -85,28 +78,20 @@ api_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     memory=8192,
 )
 def download_models() -> dict[str, str]:
-    """Download both Turbo checkpoints once into persistent Modal storage."""
     import os
-
     from huggingface_hub import snapshot_download
 
     token = os.environ["HF_TOKEN"]
     downloaded: dict[str, str] = {}
-    for repo_id, path in (
-        (GEN_MODEL_ID, GEN_MODEL_PATH),
-        (EDIT_MODEL_ID, EDIT_MODEL_PATH),
-    ):
+    for repo_id, path in ((GEN_MODEL_ID, GEN_MODEL_PATH), (EDIT_MODEL_ID, EDIT_MODEL_PATH)):
         path.mkdir(parents=True, exist_ok=True)
         snapshot_download(repo_id=repo_id, local_dir=str(path), token=token)
         downloaded[repo_id] = str(path)
-
     model_volume.commit()
     return downloaded
 
 
 def _validate_size(width: int, height: int) -> None:
-    # Keeping the default ceiling conservative protects the Starter credit and
-    # leaves VRAM headroom on the 24 GB L4. Mage itself supports up to 2048.
     if not (512 <= width <= 1536 and 512 <= height <= 1536):
         raise ValueError("width and height must be between 512 and 1536")
     if width % 16 or height % 16:
@@ -125,31 +110,18 @@ class Generator:
     @modal.enter()
     def load(self) -> None:
         from mage_flow import MageFlowPipeline
-
         if not GEN_MODEL_PATH.exists():
             raise RuntimeError("Generation weights are missing. Run download_models first.")
         self.pipe = MageFlowPipeline.from_pretrained(str(GEN_MODEL_PATH), device="cuda")
 
     @modal.method()
-    def generate(
-        self,
-        prompt: str,
-        width: int = 1024,
-        height: int = 1024,
-        seed: int = 42,
-    ) -> bytes:
+    def generate(self, prompt: str, width: int = 1024, height: int = 1024, seed: int = 42) -> bytes:
         _validate_size(width, height)
         prompt = prompt.strip()
         if not prompt:
             raise ValueError("prompt cannot be empty")
-
         image = self.pipe.generate(
-            [prompt],
-            heights=[height],
-            widths=[width],
-            seeds=[seed],
-            steps=4,
-            cfg=1.0,
+            [prompt], heights=[height], widths=[width], seeds=[seed], steps=4, cfg=1.0
         )[0]
         out = BytesIO()
         image.save(out, format="PNG")
@@ -168,35 +140,21 @@ class Editor:
     @modal.enter()
     def load(self) -> None:
         from mage_flow import MageFlowPipeline
-
         if not EDIT_MODEL_PATH.exists():
             raise RuntimeError("Editing weights are missing. Run download_models first.")
         self.pipe = MageFlowPipeline.from_pretrained(str(EDIT_MODEL_PATH), device="cuda")
 
     @modal.method()
-    def edit(
-        self,
-        image_bytes: bytes,
-        prompt: str,
-        max_size: int = 1024,
-        seed: int = 42,
-    ) -> bytes:
+    def edit(self, image_bytes: bytes, prompt: str, max_size: int = 1024, seed: int = 42) -> bytes:
         from PIL import Image
-
         if not (512 <= max_size <= 1536):
             raise ValueError("max_size must be between 512 and 1536")
         prompt = prompt.strip()
         if not prompt:
             raise ValueError("prompt cannot be empty")
-
         source = Image.open(BytesIO(image_bytes)).convert("RGB")
         result = self.pipe.edit(
-            [prompt],
-            [source],
-            max_size=max_size,
-            seeds=[seed],
-            steps=4,
-            cfg=1.0,
+            [prompt], [source], max_size=max_size, seeds=[seed], steps=4, cfg=1.0
         )[0]
         out = BytesIO()
         result.save(out, format="PNG")
@@ -206,16 +164,11 @@ class Editor:
 @app.function(image=api_image, timeout=12 * 60)
 @modal.asgi_app(requires_proxy_auth=True)
 def api():
-    """Private HTTP API. Modal rejects unauthenticated traffic before compute starts."""
     from fastapi import FastAPI, File, Form, HTTPException, UploadFile
     from fastapi.responses import Response
     from pydantic import BaseModel, Field
 
-    web = FastAPI(
-        title="Mage-Flow on Modal",
-        version="1.0.0",
-        description="Private 4-step Mage-Flow Turbo generation + image editing API.",
-    )
+    web = FastAPI(title="Mage-Flow on Modal", version="1.0.0")
 
     class GenerateRequest(BaseModel):
         prompt: str = Field(min_length=1, max_length=4000)
@@ -225,32 +178,18 @@ def api():
 
     @web.get("/")
     def root():
-        return {
-            "status": "ok",
-            "generation_model": GEN_MODEL_ID,
-            "editing_model": EDIT_MODEL_ID,
-            "gpu": "L4",
-            "docs": "/docs",
-            "auth": "Modal proxy authentication required",
-        }
+        return {"status": "ok", "generation_model": GEN_MODEL_ID, "editing_model": EDIT_MODEL_ID, "gpu": "L4", "docs": "/docs", "auth": "Modal proxy authentication required"}
 
     @web.post("/generate")
     def generate_image(req: GenerateRequest):
         try:
-            data = Generator().generate.remote(
-                req.prompt, req.width, req.height, req.seed
-            )
+            data = Generator().generate.remote(req.prompt, req.width, req.height, req.seed)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         return Response(content=data, media_type="image/png")
 
     @web.post("/edit")
-    def edit_image(
-        image: UploadFile = File(...),
-        prompt: str = Form(...),
-        max_size: int = Form(1024),
-        seed: int = Form(42),
-    ):
+    def edit_image(image: UploadFile = File(...), prompt: str = Form(...), max_size: int = Form(1024), seed: int = Form(42)):
         try:
             source = image.file.read()
             if not source:
@@ -265,30 +204,65 @@ def api():
 
 @app.local_entrypoint()
 def smoke_test(output_dir: str = "smoke-output") -> None:
-    """Exercise both GPU models and save outputs on the caller for CI inspection."""
     target = Path(output_dir)
     target.mkdir(parents=True, exist_ok=True)
-
     generated = Generator().generate.remote(
-        "A clean premium poster on an off-white background. In the center, render "
-        "the exact large headline text 'MAGE WORKS' in bold black sans-serif type. "
-        "Minimal composition, crisp typography, studio-quality graphic design.",
-        512,
-        512,
-        12345,
+        "A clean premium poster on an off-white background. In the center, render the exact large headline text 'MAGE WORKS' in bold black sans-serif type. Minimal composition, crisp typography, studio-quality graphic design.",
+        512, 512, 12345,
     )
-    generation_path = target / "generation.png"
-    generation_path.write_bytes(generated)
-    print(f"GENERATION_OK bytes={len(generated)} path={generation_path}")
-
+    (target / "generation.png").write_bytes(generated)
+    print(f"GENERATION_OK bytes={len(generated)}")
     edited = Editor().edit.remote(
         generated,
-        "Keep the entire poster unchanged, but replace only the headline text "
-        "'MAGE WORKS' with the exact text 'EDIT WORKS'. Preserve the same font, "
-        "size, position, background, and layout.",
-        512,
-        54321,
+        "Keep the entire poster unchanged, but replace only the headline text 'MAGE WORKS' with the exact text 'EDIT WORKS'. Preserve the same font, size, position, background, and layout.",
+        512, 54321,
     )
-    edit_path = target / "edit.png"
-    edit_path.write_bytes(edited)
-    print(f"EDIT_OK bytes={len(edited)} path={edit_path}")
+    (target / "edit.png").write_bytes(edited)
+    print(f"EDIT_OK bytes={len(edited)}")
+
+
+@app.local_entrypoint()
+def benchmark(output_dir: str = "benchmark-output") -> None:
+    """Measure cold and warm 1024px latency with three sequential generations."""
+    import json
+    import statistics
+    import time
+
+    target = Path(output_dir)
+    target.mkdir(parents=True, exist_ok=True)
+    prompts = [
+        "Premium coffee advertisement, dark studio background, realistic glass cup with condensation, dramatic rim light. Exact headline text: 'TASTE THE NIGHT'. Small subheading: 'Cold Brew'. High-end commercial photography and clean typography.",
+        "Minimal luxury skincare poster, ivory background, glass serum bottle, soft natural shadows, exact headline text 'PURE GLOW', editorial product photography, sophisticated modern typography.",
+        "Futuristic sneaker campaign, metallic studio set, energetic lighting, exact large text 'MOVE FASTER', premium advertising photography, crisp graphic design.",
+    ]
+
+    gen = Generator()
+    durations = []
+    sizes = []
+    wall_start = time.perf_counter()
+    for i, prompt in enumerate(prompts, start=1):
+        started = time.perf_counter()
+        data = gen.generate.remote(prompt, 1024, 1024, 9000 + i)
+        elapsed = time.perf_counter() - started
+        durations.append(elapsed)
+        sizes.append(len(data))
+        path = target / f"generation-{i}.png"
+        path.write_bytes(data)
+        print(f"BENCH_IMAGE index={i} seconds={elapsed:.3f} bytes={len(data)} path={path}")
+
+    total_wall = time.perf_counter() - wall_start
+    warm = durations[1:]
+    result = {
+        "resolution": "1024x1024",
+        "steps": 4,
+        "gpu": "L4",
+        "calls_seconds": durations,
+        "first_call_seconds": durations[0],
+        "warm_average_seconds": statistics.mean(warm),
+        "warm_min_seconds": min(warm),
+        "warm_max_seconds": max(warm),
+        "three_call_wall_seconds": total_wall,
+        "output_bytes": sizes,
+    }
+    (target / "benchmark.json").write_text(json.dumps(result, indent=2))
+    print("BENCHMARK_JSON=" + json.dumps(result, separators=(",", ":")))
