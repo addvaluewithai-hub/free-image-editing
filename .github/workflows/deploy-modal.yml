@@ -31,13 +31,22 @@ jobs:
       - name: Install Modal CLI
         run: python -m pip install --upgrade "modal==1.5.2"
 
-      - name: Verify Modal credentials are configured
+      - name: Verify deployment secrets are configured
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: |
           test -n "$MODAL_TOKEN_ID" || (echo "MODAL_TOKEN_ID is missing" && exit 1)
           test -n "$MODAL_TOKEN_SECRET" || (echo "MODAL_TOKEN_SECRET is missing" && exit 1)
+          test -n "$HF_TOKEN" || (echo "HF_TOKEN is missing" && exit 1)
+
+      - name: Sync Hugging Face token to Modal Secret
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: modal secret create --force huggingface HF_TOKEN="$HF_TOKEN"
 
       - name: Cache Mage-Flow model weights in Modal Volume
         env:
