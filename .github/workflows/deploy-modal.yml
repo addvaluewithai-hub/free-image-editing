@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - "modal_app.py"
+      - "storyboard_test.py"
       - ".github/workflows/deploy-modal.yml"
   workflow_dispatch:
 
@@ -60,17 +61,17 @@ jobs:
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
         run: modal deploy modal_app.py
 
-      - name: Benchmark three 1024px generations on L4
+      - name: Generate 10-frame Ramses storyboard and benchmark it
         env:
           MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
           MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
-        run: modal run modal_app.py::benchmark
+        run: modal run storyboard_test.py::storyboard
 
-      - name: Upload benchmark results
+      - name: Upload storyboard images and benchmark
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mage-flow-1024-benchmark
-          path: benchmark-output/
+          name: ramses-mage-storyboard
+          path: storyboard-output/
           if-no-files-found: ignore
           retention-days: 3
