@@ -7,8 +7,8 @@ import modal
 
 APP_NAME = "free-image-editing"
 MAGE_COMMIT = "76bec2bb3818863f470de7e867c2dc7f1d0bfd83"
-GEN_MODEL_ID = "microsoft/Mage-Flow-Turbo"
-EDIT_MODEL_ID = "microsoft/Mage-Flow-Edit-Turbo"
+GEN_MODEL_ID = "SceneWorks/Mage-Flow-Turbo"
+EDIT_MODEL_ID = "SceneWorks/Mage-Flow-Edit-Turbo"
 MODEL_ROOT = Path("/models")
 GEN_MODEL_PATH = MODEL_ROOT / "Mage-Flow-Turbo"
 EDIT_MODEL_PATH = MODEL_ROOT / "Mage-Flow-Edit-Turbo"
@@ -85,7 +85,7 @@ api_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
     memory=8192,
 )
 def download_models() -> dict[str, str]:
-    """Download both gated Turbo checkpoints once into persistent Modal storage."""
+    """Download both Turbo checkpoints once into persistent Modal storage."""
     import os
 
     from huggingface_hub import snapshot_download
