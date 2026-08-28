@@ -78,22 +78,26 @@ api_image = modal.Image.debian_slim(python_version="3.11").uv_pip_install(
 
 @app.function(
     image=download_image,
+    secrets=[modal.Secret.from_name("huggingface")],
     volumes={str(MODEL_ROOT): model_volume},
     timeout=60 * 60,
     cpu=4,
     memory=8192,
 )
 def download_models() -> dict[str, str]:
-    """Download both Turbo checkpoints once into persistent Modal storage."""
+    """Download both gated Turbo checkpoints once into persistent Modal storage."""
+    import os
+
     from huggingface_hub import snapshot_download
 
+    token = os.environ["HF_TOKEN"]
     downloaded: dict[str, str] = {}
     for repo_id, path in (
         (GEN_MODEL_ID, GEN_MODEL_PATH),
         (EDIT_MODEL_ID, EDIT_MODEL_PATH),
     ):
         path.mkdir(parents=True, exist_ok=True)
-        snapshot_download(repo_id=repo_id, local_dir=str(path))
+        snapshot_download(repo_id=repo_id, local_dir=str(path), token=token)
         downloaded[repo_id] = str(path)
 
     model_volume.commit()
