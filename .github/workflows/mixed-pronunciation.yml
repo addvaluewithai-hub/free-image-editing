@@ -1,0 +1,89 @@
+name: Compare TTS Mixed Arabic English IPA
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "mixed_pronunciation_common.py"
+      - "mixed_pronunciation_qwen06.py"
+      - "mixed_pronunciation_qwen17.py"
+      - "mixed_pronunciation_vox.py"
+      - "mixed_pronunciation_chatterbox.py"
+      - "mixed_pronunciation_voicetut.py"
+      - ".github/workflows/mixed-pronunciation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: modal-mixed-pronunciation
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Modal CLI
+        run: python -m pip install --upgrade "modal==1.5.2"
+
+      - name: Verify Modal credentials
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          test -n "$MODAL_TOKEN_ID" || (echo "MODAL_TOKEN_ID is missing" && exit 1)
+          test -n "$MODAL_TOKEN_SECRET" || (echo "MODAL_TOKEN_SECRET is missing" && exit 1)
+
+      - name: VoiceTut mixed Arabic English plus IPA control
+        continue-on-error: true
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run mixed_pronunciation_voicetut.py::benchmark --output-dir mixed-pronunciation-voicetut
+
+      - name: Chatterbox Turbo mixed Arabic English plus IPA control
+        continue-on-error: true
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run mixed_pronunciation_chatterbox.py::benchmark --output-dir mixed-pronunciation-chatterbox
+
+      - name: Qwen3 TTS 1.7B mixed Arabic English plus IPA control
+        continue-on-error: true
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run mixed_pronunciation_qwen17.py::benchmark --output-dir mixed-pronunciation-qwen17
+
+      - name: Qwen3 TTS 0.6B mixed Arabic English plus IPA control
+        continue-on-error: true
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run mixed_pronunciation_qwen06.py::benchmark --output-dir mixed-pronunciation-qwen06
+
+      - name: VoxCPM2 mixed Arabic English plus IPA control
+        continue-on-error: true
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run mixed_pronunciation_vox.py::benchmark --output-dir mixed-pronunciation-vox
+
+      - name: Upload all mixed pronunciation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mixed-arabic-english-ipa-all-models
+          path: mixed-pronunciation-*/
+          if-no-files-found: warn
+          retention-days: 3
