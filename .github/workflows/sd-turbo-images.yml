@@ -1,0 +1,70 @@
+name: Benchmark SD-Turbo 10 Graded Images
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "sd_turbo_benchmark.py"
+      - ".github/workflows/sd-turbo-images.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sd-turbo-image-benchmark
+  cancel-in-progress: false
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Modal CLI
+        run: python -m pip install --upgrade "modal==1.5.2"
+
+      - name: Verify Modal secrets
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          test -n "$MODAL_TOKEN_ID" || (echo "MODAL_TOKEN_ID is missing" && exit 1)
+          test -n "$MODAL_TOKEN_SECRET" || (echo "MODAL_TOKEN_SECRET is missing" && exit 1)
+          test -n "$HF_TOKEN" || (echo "HF_TOKEN is missing" && exit 1)
+
+      - name: Sync Hugging Face token to Modal
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: modal secret create --force huggingface HF_TOKEN="$HF_TOKEN"
+
+      - name: Cache SD-Turbo weights on CPU
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run sd_turbo_benchmark.py::download_model
+
+      - name: Generate 10 graded images on T4
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: modal run sd_turbo_benchmark.py::benchmark --output-dir sd-turbo-output
+
+      - name: Upload images and benchmark
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sd-turbo-t4-graded-10
+          path: sd-turbo-output/
+          if-no-files-found: ignore
+          retention-days: 3
