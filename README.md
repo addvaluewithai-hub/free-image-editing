@@ -17,6 +17,20 @@ The repo has been cleaned of the old experiments. Do not treat Git history as th
 
 **Removed from the production tree:** VoxCPM2, VoiceTut, Chatterbox, Qwen 1.7B, image-generation experiments, mixed-pronunciation benchmarks, and long-form comparison scripts.
 
+### Parked legacy Modal resources
+
+Some historical Modal apps and model volumes are intentionally left in the workspace for possible future experiments. They are **not production dependencies** and agents must not route production traffic to them unless explicitly asked.
+
+Known parked resources include:
+
+- `egyptian-voice-chat` / `egyptian-voice-chat-models` — historical VoxCPM2 + Egyptian-Qwen work.
+- `voicetut-tts-test` — historical VoiceTut-TTS experiment; it used the shared `egyptian-voice-chat-models` volume.
+- `chatterbox-turbo-test` / `chatterbox-turbo-models` — historical Chatterbox Turbo experiment.
+- `qwen3-tts-17b-expressions` / `qwen3-tts-17b-models` — historical Qwen3-TTS 1.7B expression experiment.
+- `qwen3-tts-06b-test` — historical 0.6B test deployment. Its `qwen3-tts-models` volume is **not legacy-only**: the cleaned production app deliberately reuses that volume for the 0.6B checkpoints.
+
+Do not delete parked apps or volumes automatically. Modal compute scales to zero, so an idle deployed app does not consume GPU/CPU compute. Persistent Volume storage is a separate billing dimension: at the time this note was written Modal listed `$0.09/GiB/month` with `1 TiB/month` included free. Re-check current Modal pricing before making cleanup decisions based on cost.
+
 ### Important model limitations
 
 - **0.6B CustomVoice does not provide reliable `instruct` / voice-style control.** Do not expose or silently pass style prompts.
