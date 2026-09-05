@@ -17,13 +17,22 @@ Do not reintroduce VoxCPM2, VoiceTut, Chatterbox, Qwen 1.7B, image-generation mo
 
 Historical Modal apps/volumes are intentionally retained for possible future experiments. They are **parked**, not production dependencies.
 
-Known parked resources:
+Known historical TTS resources:
 
 - `egyptian-voice-chat` / `egyptian-voice-chat-models`
 - `voicetut-tts-test` (shared the `egyptian-voice-chat-models` volume)
 - `chatterbox-turbo-test` / `chatterbox-turbo-models`
 - `qwen3-tts-17b-expressions` / `qwen3-tts-17b-models`
 - `qwen3-tts-06b-test` (historical app only; its `qwen3-tts-models` volume is actively reused by production)
+
+Known historical image-generation resources recovered from Git history:
+
+- `free-image-editing` / `mage-flow-models` — Mage-Flow Turbo + Mage-Flow Edit Turbo.
+- `sd-turbo-simple-images` / `sd-turbo-model-cache` — Stability AI SD-Turbo.
+- `gear-t2i-1b-benchmark` / `gear-t2i-models` — GEAR T2I GPIC 1B.
+- `hidream-o1-8b-benchmark` / `hidream-o1-models` — HiDream-O1-Image 8B.
+
+The GitHub connector confirms these names from project history, but it does not directly enumerate the live Modal workspace. If one of these resources is needed, verify that it is still present/deployed in Modal before depending on it.
 
 Rules:
 
