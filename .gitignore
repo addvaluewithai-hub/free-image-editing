@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Local secrets
+.env
+.env.*
+*.pem
+*.key
+
+# Generated audio / benchmark artifacts
+*.wav
+*.mp3
+*.flac
+*.zip
+*.jsonl
+output/
+outputs/
+*-output/
+smoke-output/
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
