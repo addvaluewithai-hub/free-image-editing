@@ -43,7 +43,9 @@ MAX_TEXT_CHARS = 2400
 MAX_REFERENCE_BYTES = 25 * 1024 * 1024
 
 app = modal.App(APP_NAME)
-model_volume = modal.Volume.from_name("qwen3-tts-06b-models", create_if_missing=True)
+# Reuse the original tested 0.6B volume so the CustomVoice weights do not need
+# to be downloaded again. The Base checkpoint is stored alongside it.
+model_volume = modal.Volume.from_name("qwen3-tts-models", create_if_missing=True)
 
 
 download_image = (
