@@ -1,0 +1,87 @@
+name: Render Video Factory Audio
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".video-factory-request.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: video-factory-qwen-render
+  cancel-in-progress: false
+
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout Qwen provider
+        uses: actions/checkout@v4
+
+      - name: Read render request
+        id: request
+        shell: bash
+        run: |
+          set -euo pipefail
+          JOB=$(python -c 'import json; print(json.load(open(".video-factory-request.json"))["job"])')
+          SPEAKER=$(python -c 'import json; print(json.load(open(".video-factory-request.json")).get("speaker", "Aiden"))')
+          LANGUAGE=$(python -c 'import json; print(json.load(open(".video-factory-request.json")).get("language", "English"))')
+          REF=$(python -c 'import json; print(json.load(open(".video-factory-request.json")).get("tts_ref", "main"))')
+          echo "job=$JOB" >> "$GITHUB_OUTPUT"
+          echo "speaker=$SPEAKER" >> "$GITHUB_OUTPUT"
+          echo "language=$LANGUAGE" >> "$GITHUB_OUTPUT"
+          echo "ref=$REF" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout Video Factory
+        uses: actions/checkout@v4
+        with:
+          repository: addvaluewithai-hub/tts
+          ref: ${{ steps.request.outputs.ref }}
+          path: _video_factory
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Modal CLI
+        run: python -m pip install --upgrade "modal==1.5.2"
+
+      - name: Verify Modal credentials
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+        run: |
+          test -n "$MODAL_TOKEN_ID" || (echo "MODAL_TOKEN_ID is missing" && exit 1)
+          test -n "$MODAL_TOKEN_SECRET" || (echo "MODAL_TOKEN_SECRET is missing" && exit 1)
+
+      - name: Render Qwen audio on Modal
+        env:
+          MODAL_TOKEN_ID: ${{ secrets.MODAL_TOKEN_ID }}
+          MODAL_TOKEN_SECRET: ${{ secrets.MODAL_TOKEN_SECRET }}
+          JOB: ${{ steps.request.outputs.job }}
+          SPEAKER: ${{ steps.request.outputs.speaker }}
+          LANGUAGE: ${{ steps.request.outputs.language }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          INPUT="_video_factory/transcripts/${JOB}"
+          test -d "$INPUT" || (echo "Missing Video Factory transcript queue: $INPUT" && exit 2)
+          mkdir -p "rendered/${JOB}"
+          modal run video_factory_bridge.py::render_video_factory_job \
+            --input-dir "$INPUT" \
+            --output-dir "rendered/${JOB}" \
+            --speaker "$SPEAKER" \
+            --language "$LANGUAGE" \
+            --gap-ms 300
+
+      - name: Upload rendered audio
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.request.outputs.job }}-qwen-audio
+          path: rendered/${{ steps.request.outputs.job }}/
+          if-no-files-found: error
+          retention-days: 14
