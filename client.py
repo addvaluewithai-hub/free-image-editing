@@ -19,58 +19,66 @@ def _headers() -> dict[str, str]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Call the private Mage-Flow Modal API")
-    parser.add_argument("--url", default=os.environ.get("MAGE_API_URL"))
+    parser = argparse.ArgumentParser(description="Call the private Qwen3-TTS 0.6B Modal API")
+    parser.add_argument("--url", default=os.environ.get("QWEN_TTS_API_URL"))
     sub = parser.add_subparsers(dest="command", required=True)
 
-    gen = sub.add_parser("generate")
-    gen.add_argument("prompt")
-    gen.add_argument("--width", type=int, default=1024)
-    gen.add_argument("--height", type=int, default=1024)
-    gen.add_argument("--seed", type=int, default=42)
-    gen.add_argument("--out", default="generated.png")
+    tts = sub.add_parser("tts", help="Generate with a built-in CustomVoice speaker")
+    tts.add_argument("text")
+    tts.add_argument("--speaker", default="Ryan")
+    tts.add_argument("--language", default="English")
+    tts.add_argument("--out", default="tts.wav")
 
-    edit = sub.add_parser("edit")
-    edit.add_argument("image")
-    edit.add_argument("prompt")
-    edit.add_argument("--max-size", type=int, default=1024)
-    edit.add_argument("--seed", type=int, default=42)
-    edit.add_argument("--out", default="edited.png")
+    clone = sub.add_parser("clone", help="Clone a voice with the 0.6B Base model")
+    clone.add_argument("reference")
+    clone.add_argument("text")
+    clone.add_argument("--reference-text")
+    clone.add_argument("--language", default="English")
+    clone.add_argument("--x-vector-only", action="store_true")
+    clone.add_argument("--out", default="clone.wav")
 
     args = parser.parse_args()
     if not args.url:
-        raise SystemExit("Pass --url or set MAGE_API_URL to your Modal API URL")
+        raise SystemExit("Pass --url or set QWEN_TTS_API_URL to your Modal API URL")
 
     base = args.url.rstrip("/")
     headers = _headers()
 
-    if args.command == "generate":
+    if args.command == "tts":
         response = requests.post(
-            f"{base}/generate",
+            f"{base}/tts",
             headers={**headers, "Content-Type": "application/json"},
             json={
-                "prompt": args.prompt,
-                "width": args.width,
-                "height": args.height,
-                "seed": args.seed,
+                "text": args.text,
+                "speaker": args.speaker,
+                "language": args.language,
             },
-            timeout=600,
+            timeout=900,
         )
     else:
-        with open(args.image, "rb") as f:
+        if not args.x_vector_only and not args.reference_text:
+            raise SystemExit(
+                "--reference-text is required for high-fidelity cloning. "
+                "Use --x-vector-only if no transcript is available."
+            )
+        reference = Path(args.reference)
+        with reference.open("rb") as f:
             response = requests.post(
-                f"{base}/edit",
+                f"{base}/clone",
                 headers=headers,
-                files={"image": (Path(args.image).name, f)},
+                files={"reference": (reference.name, f)},
                 data={
-                    "prompt": args.prompt,
-                    "max_size": str(args.max_size),
-                    "seed": str(args.seed),
+                    "text": args.text,
+                    "reference_text": args.reference_text or "",
+                    "language": args.language,
+                    "x_vector_only": "true" if args.x_vector_only else "false",
                 },
-                timeout=600,
+                timeout=900,
             )
 
-    response.raise_for_status()
+    if not response.ok:
+        raise SystemExit(f"HTTP {response.status_code}: {response.text}")
+
     Path(args.out).write_bytes(response.content)
     print(f"Saved {args.out}")
 
