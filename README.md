@@ -1,132 +1,209 @@
-# Free Image Editing on Modal — Mage-Flow Turbo
+# Qwen3-TTS 0.6B on Modal
 
-This repository deploys Microsoft's **Mage-Flow-Turbo** and **Mage-Flow-Edit-Turbo** to Modal with conservative defaults for a Starter workspace.
+> The repository name is legacy. The current scope is **text-to-speech only**.
 
-## What it deploys
+This repository is the production home for a small, cost-conscious Qwen3-TTS stack on Modal. It intentionally supports only two checkpoints:
 
-- Text-to-image: `microsoft/Mage-Flow-Turbo` (4 steps)
-- Image editing: `microsoft/Mage-Flow-Edit-Turbo` (4 steps)
-- GPU: Modal **L4 24 GB**
-- Persistent model cache: Modal Volume `mage-flow-models`
-- Scale-to-zero: GPU containers shut down after 30 seconds idle
-- Cost guardrail: one generation container + one editing container maximum
-- Private HTTP API protected by **Modal Proxy Auth**
-- Automatic deploy from GitHub Actions on pushes to `main`
+1. `Qwen/Qwen3-TTS-12Hz-0.6B-CustomVoice` — built-in speakers such as **Ryan** and **Aiden**.
+2. `Qwen/Qwen3-TTS-12Hz-0.6B-Base` — **voice cloning** from a reference recording.
 
-The Microsoft Mage source is pinned to commit `76bec2bb3818863f470de7e867c2dc7f1d0bfd83` for reproducibility.
+Both checkpoints are Apache-2.0 and run on an on-demand Modal **L4** GPU with scale-to-zero.
 
-## GitHub secrets
+## Production decisions
 
-The deploy workflow expects these repository Actions secrets:
+The repo has been cleaned of the old experiments. Do not treat Git history as the current architecture.
+
+**Current:** Qwen3-TTS 0.6B CustomVoice + Qwen3-TTS 0.6B Base.
+
+**Removed from the production tree:** VoxCPM2, VoiceTut, Chatterbox, Qwen 1.7B, image-generation experiments, mixed-pronunciation benchmarks, and long-form comparison scripts.
+
+### Important model limitations
+
+- **0.6B CustomVoice does not provide reliable `instruct` / voice-style control.** Do not expose or silently pass style prompts.
+- **No SSML or IPA input is supported by this API.** Parse/strip markup before calling TTS.
+- If a pronunciation override is required, do it in an upstream text-normalization / pronunciation dictionary layer using ordinary speakable text. Do not send `<phoneme>` tags.
+- Qwen3-TTS officially supports Chinese, English, Japanese, Korean, German, French, Russian, Portuguese, Spanish, and Italian. **Arabic is not a supported production language here.** If a source document mixes Arabic and English, segment it upstream and send only supported-language spans to this service.
+- Long-form content must be chunked upstream. The API currently caps one request at **2400 characters** to avoid runaway latency/timeouts.
+
+## Files an agent should care about
+
+```text
+qwen3_tts_modal.py              # Modal app + private HTTP API
+client.py                       # Small CLI client for manual testing
+.github/workflows/deploy-modal.yml  # Manual production deployment
+AGENTS.md                       # Rules for coding agents
+```
+
+Everything else should be documentation/configuration only.
+
+## Models
+
+### Preset voice
+
+Endpoint: `POST /tts`
+
+Default speaker is `Ryan`. For English, the two native-English built-ins are:
+
+- `Ryan` — dynamic male voice with rhythmic drive.
+- `Aiden` — sunny American male voice with a clear midrange.
+
+Other upstream built-in speakers are exposed, but using a speaker in its native language is generally the safest quality choice.
+
+Example JSON:
+
+```json
+{
+  "text": "Tell me about yourself.",
+  "speaker": "Aiden",
+  "language": "English"
+}
+```
+
+### Voice cloning
+
+Endpoint: `POST /clone`
+
+Uses `Qwen/Qwen3-TTS-12Hz-0.6B-Base`.
+
+Multipart fields:
+
+- `reference`: reference audio file.
+- `text`: target text to synthesize.
+- `reference_text`: exact transcript of the reference audio. Recommended for higher-fidelity cloning.
+- `language`: default `English`.
+- `x_vector_only`: default `false`. Set to `true` only when a transcript is unavailable.
+
+For a reusable branded voice, prefer a clean reference recording and provide the exact transcript. The current API extracts the voice conditioning per request; persistent/cached clone prompts can be added later if repeated-clone benchmarks justify it.
+
+## Modal deployment
+
+### GitHub Actions secrets
+
+The repository expects these Actions secrets:
 
 - `MODAL_TOKEN_ID`
 - `MODAL_TOKEN_SECRET`
+- `HF_TOKEN`
 
-Do not put their values in the repository.
+Never put secret values in source files, logs, issues, prompts, or documentation.
 
-## Automatic deployment
+### Why deployment is manual
 
-`.github/workflows/deploy-modal.yml` does two things:
+Deployment is intentionally **not triggered on every push**. An agent changing documentation or refactoring code should not automatically start model-download/deployment work and spend credits.
 
-1. Downloads both Hugging Face checkpoints into the persistent Modal Volume.
-2. Deploys `modal_app.py`.
+Run the workflow manually from:
 
-The first run can take a while because it downloads the model weights and builds FlashAttention. Later deploys should reuse Modal caches.
+```text
+Actions -> Deploy Qwen3-TTS 0.6B -> Run workflow
+```
 
-## Find the API URL
+The workflow can cache both checkpoints into the existing Modal volume `qwen3-tts-models`, then deploy `qwen3_tts_modal.py`.
 
-After the GitHub Action succeeds, open the Modal dashboard and select the `free-image-editing` app. The `api` web function will show its URL.
-
-The endpoint is intentionally private so strangers cannot burn your GPU credits.
-
-## Create a Proxy Token
-
-For API access, install the Modal CLI locally and authenticate, then create a proxy token:
+Manual CLI equivalent:
 
 ```bash
-pip install modal
+pip install modal==1.5.2
 modal setup
+modal run qwen3_tts_modal.py::download_models
+modal deploy qwen3_tts_modal.py
+```
+
+The deployed app name is:
+
+```text
+qwen3-tts-06b
+```
+
+## Security
+
+The HTTP API uses Modal proxy authentication. GPU endpoints are not intentionally public.
+
+Create a proxy token with:
+
+```bash
 modal workspace proxy-tokens create
 ```
 
-Save the printed `wk-...` ID and `ws-...` secret somewhere safe. They are different from your Modal API token used by GitHub Actions.
+Then configure the client:
 
-## Test generation
+```bash
+export QWEN_TTS_API_URL='https://YOUR-ENDPOINT.modal.run'
+export MODAL_PROXY_TOKEN_ID='wk-...'
+export MODAL_PROXY_TOKEN_SECRET='ws-...'
+```
 
-Install the tiny local client dependency:
+Proxy credentials are sent as a Bearer token in the form `wk-....ws-...`, which Modal supports for proxy-authenticated endpoints.
+
+## Client examples
+
+Install the only local client dependency:
 
 ```bash
 pip install requests
 ```
 
-Then set:
+Preset voice:
 
 ```bash
-export MAGE_API_URL='https://YOUR-MODAL-URL.modal.run'
-export MODAL_PROXY_TOKEN_ID='wk-...'
-export MODAL_PROXY_TOKEN_SECRET='ws-...'
+python client.py tts \
+  "Hi, I'm Maya. I'm from Jordan." \
+  --speaker Aiden \
+  --language English \
+  --out maya.wav
 ```
 
-Generate an image:
+High-fidelity voice clone:
 
 ```bash
-python client.py generate "A premium black coffee package with the words NIGHT ROAST in elegant gold typography" --out coffee.png
+python client.py clone reference.wav \
+  "Hi, I'm Maya. I'm from Jordan." \
+  --reference-text "This is the exact sentence spoken in the reference recording." \
+  --language English \
+  --out cloned.wav
 ```
 
-## Test editing
+Clone without a transcript, with lower-fidelity x-vector-only conditioning:
 
 ```bash
-python client.py edit input.png "Replace the background with a neon Tokyo street at night while preserving the subject" --out edited.png
+python client.py clone reference.wav \
+  "Hello from the cloned voice." \
+  --x-vector-only \
+  --out cloned.wav
 ```
 
-## API
+## Cost guardrails
 
-### `POST /generate`
-
-JSON body:
-
-```json
-{
-  "prompt": "a product poster with legible text",
-  "width": 1024,
-  "height": 1024,
-  "seed": 42
-}
-```
-
-Returns `image/png`.
-
-### `POST /edit`
-
-Multipart form fields:
-
-- `image`: source image file
-- `prompt`: edit instruction
-- `max_size`: 512–1536, default 1024
-- `seed`: default 42
-
-Returns `image/png`.
-
-## Cost protection
-
-The code intentionally uses:
+The Modal classes use:
 
 - `gpu="L4"`
 - `scaledown_window=30`
-- `max_containers=1`
-- 4-step Turbo checkpoints
-- a 1536 px API ceiling even though Mage can support larger images
-- Modal proxy authentication
+- `max_containers=1` per TTS class
+- no minimum warm containers
+- a bounded request length
+- private proxy-authenticated HTTP access
 
-These choices prioritize making the $30 Starter credit last. If L4 proves too slow or runs out of VRAM for a specific workload, change the two GPU class decorators to `gpu="L40S"`.
+Historical measured baseline for the old **0.6B CustomVoice SDPA** deployment on L4:
 
-## Manual deploy
+- warm RTF: about **1.74**
+- about **$0.0232 per generated audio minute**
+- `$30` of L4 compute: about **1,295 audio minutes / 21.6 hours**
 
-If GitHub Actions is unavailable:
+The production image now enables FlashAttention 2, so treat those numbers as a conservative historical baseline rather than a fresh benchmark. The 0.6B Base voice-clone path has **not yet been cost-benchmarked in this cleaned production setup**.
 
-```bash
-pip install modal
-modal setup
-modal run modal_app.py::download_models
-modal deploy modal_app.py
+## API discovery
+
+`GET /` returns the active model IDs, supported speakers/languages, GPU policy, and explicit capability flags including:
+
+```json
+{
+  "ssml": false,
+  "ipa_input": false,
+  "style_instruction_on_0_6b": false
+}
 ```
+
+Agents should use those capability flags rather than assuming features from another Qwen3-TTS model size.
+
+## Before changing architecture
+
+Read `AGENTS.md` first. In particular, do not re-add old benchmark models or switch to a larger checkpoint unless the task explicitly requires a new architecture decision and its cost/quality tradeoff is documented.
