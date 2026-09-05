@@ -11,7 +11,27 @@ Only these production model paths are in scope:
 
 Primary implementation: `qwen3_tts_modal.py`.
 
-Do not reintroduce VoxCPM2, VoiceTut, Chatterbox, Qwen 1.7B, image-generation models, or historical benchmark harnesses unless the user explicitly asks for a new model comparison or architecture change.
+Do not reintroduce VoxCPM2, VoiceTut, Chatterbox, Qwen 1.7B, image-generation models, or historical benchmark harnesses into the production tree unless the user explicitly asks for a new model comparison or architecture change.
+
+## Parked Modal resources
+
+Historical Modal apps/volumes are intentionally retained for possible future experiments. They are **parked**, not production dependencies.
+
+Known parked resources:
+
+- `egyptian-voice-chat` / `egyptian-voice-chat-models`
+- `voicetut-tts-test` (shared the `egyptian-voice-chat-models` volume)
+- `chatterbox-turbo-test` / `chatterbox-turbo-models`
+- `qwen3-tts-17b-expressions` / `qwen3-tts-17b-models`
+- `qwen3-tts-06b-test` (historical app only; its `qwen3-tts-models` volume is actively reused by production)
+
+Rules:
+
+1. Do **not** delete parked apps or volumes automatically.
+2. Do **not** use parked apps for production traffic unless explicitly requested.
+3. Idle Modal apps scale to zero and do not consume compute merely by remaining deployed.
+4. Persistent Volume storage is billed separately. At the time this note was written Modal listed `$0.09/GiB/month` with `1 TiB/month` included free; check current pricing before making a future cost-based deletion decision.
+5. If inspecting or reviving a parked experiment, recover its code from Git history rather than re-polluting the current production tree by default.
 
 ## Capability rules
 
@@ -74,6 +94,7 @@ python -m py_compile qwen3_tts_modal.py client.py
 ```
 
 7. Do not deploy automatically just to validate a documentation/refactor change.
+8. Do not delete parked Modal resources without explicit approval.
 
 ## Benchmark context
 
